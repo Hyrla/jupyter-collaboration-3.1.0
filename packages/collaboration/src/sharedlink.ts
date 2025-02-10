@@ -46,9 +46,9 @@ export async function showSharedLinkDialog({
   );
 
   const serverOwner = PageConfig.getOption('baseUrl').split('/')[2]; // The server owner is the third part of the base URL, after /user/
-  const serverName = PageConfig.getOption('baseUrl').split(serverOwner)[1].replace(/\//g, '');
-  console.log('serverOwner:', serverOwner);
-  console.log('serverName:', serverName);
+  const serverName = PageConfig.getOption('baseUrl')
+    .split(serverOwner)[1]
+    .replace(/\//g, '');
   let canCreateShare = false;
   let canListUsers = false;
   let canListGroups = false;
@@ -85,13 +85,15 @@ export async function showSharedLinkDialog({
         }
       });
       const userData = await userResponse.json();
-      console.log('userData:', userData.scopes);
       // The permissions needed are "read:users:name" (to be able to get a user by his/her name) and "shares!user=owner" (to be able to manage shares)
-      if (
-        userData.scopes.includes('read:users:name')
-      ) {
+      if (userData.scopes.includes('read:users:name')) {
         // Check for shares permission (shares!user or shares!user=owner or shares!server=serverName)
-        if (serverOwner === PageConfig.getOption('hubUser') && userData.scopes.includes('shares!user') || userData.scopes.includes('shares!user=' + serverOwner) || userData.scopes.includes('shares!server=' + serverName + '/')) {
+        if (
+          (serverOwner === PageConfig.getOption('hubUser') &&
+            userData.scopes.includes('shares!user')) ||
+          userData.scopes.includes('shares!user=' + serverOwner) ||
+          userData.scopes.includes('shares!server=' + serverName + '/')
+        ) {
           // TODO: check scopes in a cleaner way?
           // If the user has the required permissions, we can create a share
           canCreateShare = true;
