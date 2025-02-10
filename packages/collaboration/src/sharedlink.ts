@@ -52,6 +52,7 @@ export async function showSharedLinkDialog({
   let canCreateShare = false;
   let canListUsers = false;
   let canListGroups = false;
+  let canControlServer = false;
   let hubApiUrl = '';
 
   // If hubPrefix or hubHost or hubUser is set, we are behind a JupyterHub
@@ -92,9 +93,8 @@ export async function showSharedLinkDialog({
           (serverOwner === PageConfig.getOption('hubUser') &&
             userData.scopes.includes('shares!user')) ||
           userData.scopes.includes('shares!user=' + serverOwner) ||
-          userData.scopes.includes('shares!server=' + serverName + '/')
+          userData.scopes.includes('shares!server=' + serverOwner + '/' + serverName + '/')
         ) {
-          // TODO: check scopes in a cleaner way?
           // If the user has the required permissions, we can create a share
           canCreateShare = true;
           // Check if the user has the correct scope to list all users (not mandatory, but makes the UI easier to use)
@@ -112,6 +112,16 @@ export async function showSharedLinkDialog({
             userData.scopes.includes('admin:groups')
           ) {
             canListGroups = true;
+          }
+          // Check if the user has the correct scope to control the server (not mandatory, but allows other users to start/stop the server)
+          if (
+            (serverOwner === PageConfig.getOption('hubUser') &&
+              userData.scopes.includes('servers!user')) ||
+            userData.scopes.includes('servers!user=' + serverOwner) ||
+            userData.scopes.includes('servers!server=' + serverOwner + '/' + serverName + '/') ||
+            userData.scopes.includes('admin:servers')
+          ) {
+            canControlServer = true;
           }
         }
       }
@@ -131,6 +141,7 @@ export async function showSharedLinkDialog({
         serverName,
         canListUsers,
         canListGroups,
+        canControlServer,
         serverOwner,
         hubApiUrl,
         token,
@@ -180,6 +191,7 @@ class ManageSharesBody extends Widget implements Dialog.IBodyWidget {
     private _serverName: string,
     private _canListUsers: boolean,
     private _canListGroups: boolean,
+    private _canControlServer: boolean,
     private _serverOwner: string,
     private _hubApiUrl: string,
     private _token: string,
@@ -276,6 +288,12 @@ class ManageSharesBody extends Widget implements Dialog.IBodyWidget {
   }
 
   private async createShare(sharewith: any, type: any): Promise<void> {
+    // If the issuer can control the server, we add the "servers!server" scope to the share to let other users start/stop the server
+    const scopes = ['access:servers!server=' + this._serverOwner + '/' + this._serverName];
+    if (this._canControlServer) {
+      scopes.push('servers!server=' + this._serverOwner + '/' + this._serverName);
+    }
+
     await fetch(
       `${this._hubApiUrl}/shares/${this._serverOwner}/${this._serverName}`,
       {
@@ -285,7 +303,8 @@ class ManageSharesBody extends Widget implements Dialog.IBodyWidget {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          [type]: sharewith.name
+          [type]: sharewith.name,
+          scopes
         })
       }
     );
